@@ -1,0 +1,49 @@
+---
+- hosts: petasan
+  tasks:
+
+    - name: Grub optimization
+      lineinfile:
+        path: /etc/default/grub
+        state: present
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT='
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet net.ifnames=0 intel_idle.max_cstate=1 processor.max_cstate=1"'
+      notify: update-grub
+
+    - name: Setup rc.local
+      copy:
+        src: rc.local
+        dest: /etc/rc.local
+        mode: 0755
+
+    - name: Copy optimized target_core_mod.ko
+      copy:
+        src: target_core_mod.ko
+        dest: /lib/modules/4.12.14-08-petasan/kernel/drivers/target/target_core_mod.ko
+
+    - name: Check that ps-cpupower installed
+      stat:
+        path: /usr/bin/cpupower
+      register: pscpupower
+
+    - block:
+
+      - name: Copy ps-cpupower_4.15.deb
+        copy:
+          src: ps-cpupower_4.15.deb
+          dest: /root/ps-cpupower_4.15.deb
+
+      - name: Install ps-cpupower_4.15.deb
+        command: dpkg -i /root/ps-cpupower_4.15.deb
+
+      - name: Delete ps-cpupower_4.15.deb
+        file:
+          path: /root/ps-cpupower_4.15.deb
+          state: absent
+
+      when: pscpupower.stat.exists == False
+
+  handlers:
+
+    - name: update-grub
+      command: update-grub
